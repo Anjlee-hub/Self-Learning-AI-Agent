@@ -52,7 +52,7 @@ from agent.agent_state import AgentState
 from agent.learning_validator import validate_learning
 from agent.lesson_deduplicator import get_behavior_signature
 from agent.learning import extract_learning_strategy
-from agent.ollama_client import get_ollama_client
+from agent.ollama_client import chat_completion, is_llm_available
 from agent.lesson_retriever import retrieve_similar_lessons
 from agent.task_features import extract_task_features
 from agent.plan_parser import parse_plan
@@ -222,14 +222,6 @@ def is_calculation_request(user_input):
         return True
 
     return False
-
-
-def is_ollama_available():
-    try:
-        get_ollama_client().list()
-        return True
-    except Exception:
-        return False
 
 
 def is_time_request(user_input):
@@ -1743,13 +1735,13 @@ def run_agent(
             # SEND MEMORY + CURRENT REQUEST TO LLM
             # -------------------------------------------------
 
-            if not is_ollama_available():
+            if not is_llm_available():
                 reply = (
-                    "I cannot reach the configured Ollama model right now. "
+                    "I cannot reach the configured language model right now. "
                     "Deterministic tools like the calculator, time tool, and word counter remain available."
                 )
             else:
-                response = get_ollama_client().chat(
+                reply = chat_completion(
                     model="llama3.2",
                     messages=[
                         {
@@ -1771,9 +1763,7 @@ def run_agent(
                     ]
                 )
 
-                reply = (
-                    response.message.content.strip()
-                )
+                reply = reply.strip()
 
         except Exception as e:
 

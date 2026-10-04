@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from agent.agent_loop import is_calculation_request, is_time_request, is_word_count_request, run_agent
-from agent.ollama_client import get_ollama_client
+from agent.ollama_client import get_llm_provider, is_llm_available
 
 
 def get_allowed_origins():
@@ -92,16 +92,15 @@ def root():
 
 @app.get("/health")
 def health():
-    try:
-        get_ollama_client().list()
-        ollama_available = True
-    except Exception:
-        ollama_available = False
+    provider = get_llm_provider()
+    llm_available = is_llm_available()
 
     return {
         "status": "healthy",
         "agent": "online",
-        "ollama_available": ollama_available,
+        "llm_provider": provider,
+        "llm_available": llm_available,
+        "ollama_available": llm_available if provider == "ollama" else None,
     }
 
 

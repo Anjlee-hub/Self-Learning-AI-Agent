@@ -35,6 +35,13 @@ Key variables:
 - CORS_ALLOW_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 - LLM_PROVIDER=ollama
 - OLLAMA_BASE_URL=http://127.0.0.1:11434
+- OPENAI_MODEL=gpt-4o-mini
+
+For Render, set `LLM_PROVIDER=openai` and configure `OPENAI_API_KEY` in the
+backend service's environment settings. The backend reads the key directly;
+do not use a `VITE_`-prefixed variable or add the key to frontend configuration.
+`OPENAI_MODEL` is optional and defaults to `gpt-4o-mini`. Local development
+continues to use Ollama by default.
 
 ## Run the backend
 
@@ -54,7 +61,7 @@ npm run dev
 ## API endpoints
 
 - GET / returns basic service metadata
-- GET /health reports backend health and whether Ollama is reachable
+- GET /health reports backend health and the configured model provider status
 - POST /chat accepts a message and returns a response plus activity metadata
 
 ## Learning and memory

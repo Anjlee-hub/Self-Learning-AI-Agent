@@ -1,6 +1,6 @@
 import re
 
-from agent.ollama_client import get_ollama_client
+from agent.ollama_client import chat_completion
 
 
 # ==================================================
@@ -138,7 +138,7 @@ VALID: YES or NO
 REASON: <short reason>
 """
 
-    response = get_ollama_client().chat(
+    output = chat_completion(
         model="llama3.2",
         messages=[
             {
@@ -148,7 +148,7 @@ REASON: <short reason>
         ]
     )
 
-    output = response.message.content.strip()
+    output = output.strip()
 
     valid_match = re.search(
         r"VALID:\s*(YES|NO)",

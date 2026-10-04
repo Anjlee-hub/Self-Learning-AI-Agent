@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,6 +11,7 @@ if str(ROOT) not in sys.path:
 
 from agent.agent_loop import is_calculation_request, is_multi_step_request, is_time_request
 from agent import planner
+from agent import ollama_client
 from agent.learning import extract_learning_strategy
 from agent.lesson_retriever import retrieve_similar_lessons
 from agent.plan_executor import execute_tool_step
@@ -41,14 +43,37 @@ def test_tell_me_time_is_a_multi_step_operation():
     assert is_multi_step_request(request) is True
 
 
-def test_planner_uses_fallback_when_ollama_is_unavailable(monkeypatch):
-    class UnavailableClient:
-        def list(self):
-            raise ConnectionError("Ollama is unavailable")
-
-    monkeypatch.setattr(planner, "get_ollama_client", UnavailableClient)
+def test_planner_uses_fallback_when_provider_is_unavailable(monkeypatch):
+    monkeypatch.setattr(planner, "is_llm_available", lambda: False)
     plan = planner.create_plan("Calculate 100 / 4 and tell me the time.")
     assert plan == "1. Calculate 100 / 4\n2. Get the current time"
+
+
+def test_openai_provider_uses_backend_environment_key(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "unit-test-only")
+
+    class FakeOpenAI:
+        def __init__(self, api_key, timeout):
+            assert api_key == "unit-test-only"
+            self.chat = SimpleNamespace(
+                completions=SimpleNamespace(create=self.create_completion)
+            )
+
+        def create_completion(self, model, messages):
+            assert model == "gpt-4o-mini"
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(content="OpenAI reply"))]
+            )
+
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=FakeOpenAI))
+    assert ollama_client.is_llm_available() is True
+    assert ollama_client.chat_completion("llama3.2", [{"role": "user", "content": "Hi"}]) == "OpenAI reply"
+
+    response = TestClient(app).get("/health")
+    assert response.json()["llm_provider"] == "openai"
+    assert response.json()["llm_available"] is True
+    assert "unit-test-only" not in response.text
 
 
 def test_calculator_execution():

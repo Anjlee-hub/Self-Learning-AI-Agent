@@ -2,6 +2,7 @@
 uvicorn>=0.30.0
 pydantic>=2.8.0
 ollama>=0.3.0
+openai>=1.0.0
 numpy>=1.26.0
 sentence-transformers>=3.0.0
 pytest>=8.3.0

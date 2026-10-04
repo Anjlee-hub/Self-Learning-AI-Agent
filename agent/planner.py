@@ -1,6 +1,6 @@
 import re
 
-from agent.ollama_client import get_ollama_client
+from agent.ollama_client import chat_completion, is_llm_available
 
 
 def _fallback_plan(user_input):
@@ -38,8 +38,8 @@ def create_plan(
 ):
 
     try:
-        client = get_ollama_client()
-        client.list()
+        if not is_llm_available():
+            return _fallback_plan(user_input)
     except Exception:
         return _fallback_plan(user_input)
 
@@ -224,7 +224,7 @@ USER REQUEST:
 """
 
     try:
-        response = client.chat(
+        response = chat_completion(
             model="llama3.2",
             messages=[
                 {
@@ -234,6 +234,6 @@ USER REQUEST:
             ]
         )
 
-        return response.message.content.strip()
+        return response.strip()
     except Exception:
         return _fallback_plan(user_input)

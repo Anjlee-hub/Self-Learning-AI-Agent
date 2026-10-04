@@ -1,4 +1,4 @@
-from agent.ollama_client import get_ollama_client
+from agent.ollama_client import chat_completion
 
 
 # =========================================================
@@ -449,7 +449,7 @@ Return ONLY the strategy.
 
     try:
 
-        response = get_ollama_client().chat(
+        strategy = chat_completion(
             model="llama3.2",
             messages=[
                 {
@@ -459,12 +459,7 @@ Return ONLY the strategy.
             ]
         )
 
-        strategy = (
-            response
-            .message
-            .content
-            .strip()
-        )
+        strategy = strategy.strip()
 
     except Exception as error:
 

@@ -4,7 +4,7 @@
 
 import re
 
-from agent.ollama_client import get_ollama_client
+from agent.ollama_client import chat_completion
 
 
 VALID_LESSON_TYPES = {
@@ -211,7 +211,7 @@ LESSON: <short reusable behavioral rule>
 
     try:
 
-        result = get_ollama_client().chat(
+        content = chat_completion(
             model="llama3.2",
             messages=[
                 {
@@ -220,8 +220,6 @@ LESSON: <short reusable behavioral rule>
                 }
             ],
         )
-
-        content = result["message"]["content"]
 
     except Exception:
 

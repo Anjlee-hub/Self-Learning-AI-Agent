@@ -1,4 +1,4 @@
-from agent.ollama_client import get_ollama_client
+from agent.ollama_client import chat_completion
 
 
 def reflect_and_improve(
@@ -62,7 +62,7 @@ Do not add any other sections.
 """
 
     try:
-        response = get_ollama_client().chat(
+        response = chat_completion(
             model="llama3.2",
             messages=[
                 {
@@ -71,7 +71,7 @@ Do not add any other sections.
                 }
             ]
         )
-        return response.message.content.strip()
+        return response.strip()
     except Exception:
         return (
             "REFLECTION: The local LLM was unavailable, so no new claim was invented. "

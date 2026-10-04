@@ -51,6 +51,20 @@ python app/main.py
 
 or run the FastAPI app with your preferred ASGI server.
 
+## Render production dependencies
+
+Set the Render build command to:
+
+```bash
+pip install -r requirements-render.txt
+```
+
+The Render dependency list excludes the optional embedding stack. Semantic
+memory loads sentence-transformers lazily when installed; otherwise, semantic
+queries fall back to keyword matches from the SQLite memory database. Local
+development can continue using `requirements.txt` to enable embedding-based
+retrieval.
+
 ## Run the frontend
 
 From the frontend folder:

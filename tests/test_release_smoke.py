@@ -1,4 +1,5 @@
 import sys
+import sqlite3
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,6 +18,7 @@ from agent.lesson_retriever import retrieve_similar_lessons
 from agent.plan_executor import execute_tool_step
 from app.main import app
 from memory.memory import get_lessons, init_db, save_lesson
+from memory import semantic_memory
 
 
 @pytest.fixture(scope="module")
@@ -74,6 +76,31 @@ def test_openai_provider_uses_backend_environment_key(monkeypatch):
     assert response.json()["llm_provider"] == "openai"
     assert response.json()["llm_available"] is True
     assert "unit-test-only" not in response.text
+
+
+def test_semantic_memory_falls_back_to_keyword_search(monkeypatch, tmp_path):
+    database_path = tmp_path / "semantic-memory.db"
+    connection = sqlite3.connect(database_path)
+    connection.execute("CREATE TABLE lessons (id INTEGER PRIMARY KEY, lesson TEXT)")
+    connection.execute(
+        "INSERT INTO lessons (lesson) VALUES (?)",
+        ("Retry the calculator tool after a failed calculation.",),
+    )
+    connection.commit()
+    connection.close()
+
+    monkeypatch.setattr(semantic_memory, "DB_NAME", str(database_path))
+    monkeypatch.setattr(
+        semantic_memory,
+        "get_model",
+        lambda: (_ for _ in ()).throw(ImportError("optional embeddings unavailable")),
+    )
+
+    results = semantic_memory.search_semantic_memory(
+        "calculator failed", threshold=0.5
+    )
+    assert results
+    assert "calculator" in results[0]["content"].lower()
 
 
 def test_calculator_execution():

@@ -1,20 +1,29 @@
 import sqlite3
-import numpy as np
-
-from sentence_transformers import SentenceTransformer
+import math
+import re
 
 
 DB_NAME = "memory.db"
 MODEL_NAME = "all-MiniLM-L6-v2"
 
 _model = None
+_embedding_module_missing = False
 
 
 def get_model():
-    global _model
+    global _model, _embedding_module_missing
 
     if _model is None:
+        if _embedding_module_missing:
+            raise ImportError("sentence-transformers is not installed")
+
         print("🧠 Loading embedding model...")
+        try:
+            from sentence_transformers import SentenceTransformer
+        except ImportError:
+            _embedding_module_missing = True
+            raise
+
         _model = SentenceTransformer(MODEL_NAME)
 
     return _model
@@ -22,21 +31,50 @@ def get_model():
 
 def create_embedding(text):
     if not text or not str(text).strip():
-        return np.zeros(384, dtype=np.float32)
+        return [0.0] * 384
 
     model = get_model()
     embedding = model.encode(str(text), convert_to_numpy=True)
-    return embedding.astype(np.float32)
+    return embedding
 
 
 def cosine_similarity(vector_a, vector_b):
-    norm_a = np.linalg.norm(vector_a)
-    norm_b = np.linalg.norm(vector_b)
+    dot_product = sum(float(a) * float(b) for a, b in zip(vector_a, vector_b))
+    norm_a = math.sqrt(sum(float(value) ** 2 for value in vector_a))
+    norm_b = math.sqrt(sum(float(value) ** 2 for value in vector_b))
 
     if norm_a == 0 or norm_b == 0:
         return 0.0
 
-    return float(np.dot(vector_a, vector_b) / (norm_a * norm_b))
+    return dot_product / (norm_a * norm_b)
+
+
+def _keyword_search(query, rows, limit, threshold):
+    stop_words = {"and", "for", "from", "have", "into", "the", "this", "what", "with", "your"}
+    query_tokens = {
+        token
+        for token in re.findall(r"\b[a-z0-9]+\b", query.lower())
+        if len(token) > 2 and token not in stop_words
+    }
+    if not query_tokens:
+        return []
+
+    results = []
+    for memory_id, role, content in rows:
+        content_tokens = set(re.findall(r"\b[a-z0-9]+\b", content.lower()))
+        similarity = len(query_tokens & content_tokens) / len(query_tokens)
+        if similarity >= threshold:
+            results.append(
+                {
+                    "id": memory_id,
+                    "role": role,
+                    "content": content,
+                    "similarity": similarity,
+                }
+            )
+
+    results.sort(key=lambda item: item["similarity"], reverse=True)
+    return results[:limit]
 
 
 def _fetch_durable_memory_rows(connection):
@@ -91,25 +129,29 @@ def search_semantic_memory(query, limit=5, threshold=0.50):
     if not rows:
         return []
 
-    query_embedding = create_embedding(query)
-    results = []
+    try:
+        query_embedding = create_embedding(query)
+        results = []
 
-    for memory_id, role, content in rows:
-        if not content:
-            continue
+        for memory_id, role, content in rows:
+            if not content:
+                continue
 
-        message_embedding = create_embedding(content)
-        similarity = cosine_similarity(query_embedding, message_embedding)
+            message_embedding = create_embedding(content)
+            similarity = cosine_similarity(query_embedding, message_embedding)
 
-        if similarity >= threshold:
-            results.append(
-                {
-                    "id": memory_id,
-                    "role": role,
-                    "content": content,
-                    "similarity": similarity,
-                }
-            )
+            if similarity >= threshold:
+                results.append(
+                    {
+                        "id": memory_id,
+                        "role": role,
+                        "content": content,
+                        "similarity": similarity,
+                    }
+                )
+    except Exception as error:
+        print(f"Semantic embeddings unavailable; using keyword memory search: {error}")
+        return _keyword_search(query, rows, limit, threshold)
 
     results.sort(key=lambda item: item["similarity"], reverse=True)
     return results[:limit]
